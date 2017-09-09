@@ -1,0 +1,5 @@
+{"properties": [{
+  "name": "photowall.storage.location",
+  "type": "java.lang.String",
+  "description": "A description for 'photowall.storage.location'"
+}]}

@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -20,20 +21,22 @@ import es.bjt.photowall.model.Photo;
 public class PhotoWallController {
 
 		
-		@Value("photowall.storage.location")
-		private static String IMAGES_HOME;
+		@Value("${photowall.storage.location}")
+		private String IMAGES_HOME;
 		
-		@Value("photowall.web.user")
+		@Value("${photowall.web.user}")
 		private String nameUser;
 		
 		@Autowired
 		private PhotoService photoService;
 		
 		
-		 @RequestMapping(value="/photowall",method = RequestMethod.GET)
-	     public String home(){
-	        return "photowallView";
-	     }
+				 
+		 @RequestMapping("/photowall")
+		    public String greeting(Model model) {
+		        model.addAttribute("name", "pepe");
+		        return "photowallView";
+		    }
 		
 		/**
 		 * funcion que devuelve las 10 imagenes con mas votos
