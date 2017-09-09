@@ -1,28 +1,39 @@
 package es.bjt.photowall.webservice;
 
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
+import es.bjt.photowall.bussiness.interfaces.PhotoService;
+import es.bjt.photowall.bussiness.interfaces.PhotoViewedService;
 import es.bjt.photowall.model.Photo;
-import es.bjt.photowall.model.PhotoCollection;
 import es.bjt.photowall.utils.Utils;
 
 @RestController
 @RequestMapping("/PhotoManager")
 public class PhotoManager 
 {
+	@Autowired
+	private PhotoService photoService;
 	
-	//TODO cargar por propiedades
-	private static String IMAGES_HOME = "/home/david/Descargas/images/database";
+	@Autowired
+	private PhotoViewedService photoViewedService;
+	
+	
+	@Value("${photowall.storage.location}")
+	private String IMAGES_HOME;
 	
 	
 	/**
@@ -30,61 +41,26 @@ public class PhotoManager
 	 * @return
 	 */
 	@RequestMapping(path="/top10",produces="application/json",method=RequestMethod.GET)
-	public PhotoCollection getTop10Photos()
+	public List<Photo> getTop10Photos()
 	{
 		
-		PhotoCollection collection = new PhotoCollection();
+		List<Photo> collection = photoService.findTop10();
 		
-		Photo photo = new Photo();
-		
-		photo.setComments("Mi primera foto");
-		photo.setNumVotes(321);
-		photo.setUid("UID");
-		photo.setIdUser("MiUser");
-		
-		collection.getPhotos().add(photo);
-		
-		photo = new Photo();
-		
-		photo.setComments("Mi primera foto");
-		photo.setNumVotes(321);
-		photo.setUid("23423423");
-		photo.setIdUser("MiUser");
-		
-		collection.getPhotos().add(photo);
-		
-		photo = new Photo();
-		
-		photo.setComments("");
-		photo.setNumVotes(321);
-		photo.setUid("U456343ID");
-		photo.setIdUser("MiUser");
-		
-		collection.getPhotos().add(photo);
 		
 		return collection;		
 	}
 	
 	@RequestMapping(path="/newPhotos/{idUser}",produces="application/json",method=RequestMethod.GET)
-	public PhotoCollection getNewPhotosFromUser(@PathVariable(name="idUser") String idUser)
+	public java.util.List<Photo> getNewPhotosFromUser(@PathVariable(name="idUser") String idUser)
 	{
-		PhotoCollection collection = new PhotoCollection();
-		
-		Photo photo = new Photo();
-		
-		photo.setComments("Mi primera foto");
-		photo.setNumVotes(321);
-		photo.setUid("UID");
-		photo.setIdUser(idUser);
-		
-		collection.getPhotos().add(photo);
+		List<Photo> collection = photoService.findNewPhotoFromUser(idUser);
 		
 		return collection;
 		
 	}
 	
 	@RequestMapping(path="/addPhoto/{idUser}",consumes="multipart/form-data",method=RequestMethod.POST)
-	public void addFoto(@PathVariable(name="idUser") String idUser, @RequestPart("comment") String comment, @RequestPart("photo") byte[] photobinary ) throws IOException
+	public void addFoto(@PathVariable(name="idUser") String idUser, @RequestPart("comment") String comment, @RequestPart("photoName") String photoName, @RequestPart("photo") byte[] photobinary ) throws IOException
 	{
 		
 		
@@ -95,33 +71,72 @@ public class PhotoManager
 		photo.setUid(Utils.generateUID());
 		photo.setIdUser(idUser);
 		
-		System.out.println(photo);
+		int index = photoName.lastIndexOf(".");
+		if (index > -1)
+		{
+			photo.setExtension(photoName.substring(index+1));
+		}
+		else
+		{
+			return; //TODO. Dar error de imagen sin extension. No se inserta
+		}
 		
-		String imagePath = IMAGES_HOME + photo.getUid();
+		
+				
+		String imagePath = IMAGES_HOME + File.separatorChar + photo.getUid() + "." + photo.getExtension();
 		
 		Path path = Paths.get(imagePath);
 		Files.write(path, photobinary);	
 		
-		
-		//TODO Persistir en BBDD
-		
+		photoService.insertPhoto(photo);
+				
 	}
 	
 	@RequestMapping(path="/getPhoto/{idPhoto}",produces="application/octet-stream",method=RequestMethod.GET)
 	public byte[] getPhoto(@PathVariable(name="idPhoto") String idPhoto) throws IOException
 	{
 		
-		//TODO Localizar imagen y leer
+		Photo photo = photoService.findPhoto(idPhoto);
+		
 		//TODO Meter las imagenes en una cache de datos con infinispan
 		
-		String pathToFile = "/home/david/Descargas/descarga2.jpg";
+		String pathToFile = IMAGES_HOME + File.separatorChar + photo.getUid() + "." + photo.getExtension();
 		
 		Path path = Paths.get(pathToFile);
 		byte[] data = Files.readAllBytes(path);
-	
-		
+			
 		return data;
 		
+	}
+	
+	@RequestMapping(path="/markPhoto/{idUser}/{idPhoto}",method=RequestMethod.GET)
+	public void markPhotoViewed(@PathVariable(name="idUser") String idUser,@PathVariable(name="idPhoto") String idPhoto)
+	{
+		photoViewedService.markviewed(idUser, idPhoto);	
+		
+	}
+	
+	@RequestMapping(path="/vote/{idUser}/{idPhoto}",method=RequestMethod.GET)
+	public void votePhoto(@PathVariable(name="idUser") String idUser,@PathVariable(name="idPhoto") String idPhoto)
+	{
+		photoService.votePhoto(idPhoto,idUser);	
+		
+	}
+
+	public PhotoService getPhotoService() {
+		return photoService;
+	}
+
+	public void setPhotoService(PhotoService photoService) {
+		this.photoService = photoService;
+	}
+
+	public PhotoViewedService getPhotoViewedService() {
+		return photoViewedService;
+	}
+
+	public void setPhotoViewedService(PhotoViewedService photoViewedService) {
+		this.photoViewedService = photoViewedService;
 	}
 	
 	
